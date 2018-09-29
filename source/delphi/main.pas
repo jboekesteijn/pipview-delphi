@@ -47,36 +47,19 @@ type
     Waarschuwingen: Boolean;
     AutoCheck: Boolean;
     Interval: Integer;
-    BallonLimiet: Boolean;
-    BallonDataverkeer: Boolean;
-    BallonOver: Boolean;
-    BallonVandaag: Boolean;
-    BallonPercentages: Boolean;
     Left: Integer;
     Top: Integer;
-    Width: Integer;
-    Height: Integer;
-    Geluid: String;
-    GeluidSpelen: Boolean;
     WarnVerschil: Integer;
     WarnHoger: Integer;
     bWarnVerschil: Boolean;
     bWarnHoger: Boolean;
     bWarnOverschreden: Boolean;
-    Speaker: Boolean;
-    VerhoogLimiet: Boolean;
     AdapterNaam: String;
     VerbreekVerbinding: Boolean;
     VerbreekPercentage: Integer;
     VerbreekVerbindingDag: Boolean;
     VerbreekDataDag: Integer;
-    ShowOnStartup: Boolean;
-    ProcentInIcoon: Boolean;
-    FlashIcon: Boolean;
   end;
-
-const
-  WM_FILLMENU = WM_USER + 34;
 
 type
   TfrmPipMain = class(TForm)
@@ -111,12 +94,10 @@ type
     Controlerenopupdates1: TMenuItem;
     OpenPiPinbrowser2: TMenuItem;
     N5: TMenuItem;
-    Verbinding1: TMenuItem;
     N6: TMenuItem;
     PipViewwebsite1: TMenuItem;
     Emailnaarmaker1: TMenuItem;
     ntfTray: TCoolTrayIcon;
-    Accounts: TMenuItem;
     trayBalloon: TBalloonControl;
     Limietcontrole1: TMenuItem;
     Verbindingverbreken1: TMenuItem;
@@ -128,6 +109,9 @@ type
     steDag: TLabel;
     pgbMaand: TProgressBar;
     pgbData: TProgressBar;
+    Verbindingherstellen1: TMenuItem;
+    Verbindingverbreken2: TMenuItem;
+    Verbindingherstellen2: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure tmrUpdateTimer(Sender: TObject);
@@ -148,12 +132,11 @@ type
     procedure actEmailExecute(Sender: TObject);
     procedure actWebsiteExecute(Sender: TObject);
     procedure ntfTrayMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-    procedure AccountsClick(Sender: TObject);
-    procedure actLimietExecute(Sender: TObject);
     procedure Verbindingverbreken1Click(Sender: TObject);
     procedure tmrBalloonTimer(Sender: TObject);
     procedure ntfTrayBalloonHintClick(Sender: TObject);
     procedure lstTableSelectItem(Sender: TObject; Item: TListItem;      Selected: Boolean);
+    procedure Verbindingherstellen1Click(Sender: TObject);
   protected
     procedure WndProc(var Message: TMessage); override;
   private
@@ -162,22 +145,16 @@ type
 
     procedure WMSyscommand(var Msg: TWMSysCommand); message WM_SYSCOMMAND;
     procedure WMQueryEndSession(var Msg: TWMQueryEndSession); message WM_QUERYENDSESSION;
-    procedure WMFillMenu(var Msg: TMessage); message WM_FILLMENU;
 
     procedure Refresh;
     procedure DataThreadDone(Sender: TObject);
-    procedure DataThreadDoneLimiet(Sender: TObject);
-    procedure DataThreadDoneLimietSecond(Sender: TObject);
     procedure UpdateThreadDone(Sender: TObject);
     procedure ToonBallon;
     procedure ZetWaarde(Item: Integer; Tekst: String);
     procedure CheckForUpdates();
-    procedure FillMenus;
     procedure OpenPipInBrowser(strLogin, strWachtwoord: String);
     procedure LoadSettings;
     procedure BalloonWrapper(blnTitle, blnTekst: String; blnType, blnDuration: Integer);
-    procedure FlashIcon;
-    procedure loadActiveAccount();
 
     function getPeriodDone(): Single;
     function getPeriodLength(): Integer;
@@ -188,32 +165,22 @@ type
     function getDataPercentageFloat(): Single;
     function ForceForegroundWindow(hWnd: THandle): Boolean;
     function getIconPos(): TPoint;
-    function getAccounts: TStringList;
   public
     Opties: TOpties;
     URL: String;
     ThreadRuns: Boolean;
     DataRetrieved: Boolean;
-    activeAccount: String;
-    accountsList: TStringList;
 
     procedure ToonWaarden;
     procedure Log(Text: String);
     procedure ShowMessage(Text: String; Owner: Integer = -1);
     procedure OpenHelp(URL: String);
-    procedure fillAccountsMenu();
     procedure saveDirectPip();
     procedure SaveSettings;
   end;
 
 type
   TDataThread = class(TThread)
-  protected
-    procedure Execute; override;
-  end;
-
-type
-  TDataLimietThread = class(TThread)
   protected
     procedure Execute; override;
   end;
@@ -231,54 +198,28 @@ var
 
 implementation
 
-uses opties, tools, accounts;
+uses opties, tools;
 
 {$R *.dfm}
 
 procedure TfrmPipMain.FormCreate(Sender: TObject);
 var
   iCount: Integer;
-  bShow, bAccountFromReg: Boolean;
 begin
-  bAccountFromReg := TRUE;
-
-  for iCount := 1 to ParamCount do
-  begin
-    if LowerCase(ParamStr(iCount)) = '--account' then
-    begin
-      activeAccount := ParamStr(iCount + 1);
-      bAccountFromReg := FALSE;
-    end;
-  end;
-
-  if bAccountFromReg then
-    loadActiveAccount();
-
   LoadSettings();
-
-  accountsList := TStringList.Create;
-
-  fillAccountsMenu();
-
-  bShow       := FALSE;
-
-  Log('Welkom bij PipView...');
 
   for iCount := 1 to ParamCount do
   begin
     if LowerCase(ParamStr(iCount)) = '--show' then
     begin
-      bShow := TRUE;
+      Visible := TRUE;
     end;
   end;
 
   ThreadRuns := FALSE;
 
-  ntfTray.Hint := 'PipView v' + GetAppVersionInfo;
-
-  FillMenus;
-
-  Caption := 'PipView ' + GetAppVersionInfo + ' (' + Opties.Naam + ')';
+  ntfTray.Hint := 'PipView ' + GetAppVersionInfo;
+  Caption      := 'PipView ' + GetAppVersionInfo;
 
   if (Opties.AutoCheck) and (Opties.Naam <> 'naam') then
   begin
@@ -290,8 +231,6 @@ begin
     Left   := Opties.Left;
     Top    := Opties.Top;
   end;
-
-  Visible := Opties.ShowOnStartup or bShow;
 
   lastRealText := '';
 
@@ -339,22 +278,6 @@ begin
   inherited;
 end;
 
-procedure TfrmPipMain.loadActiveAccount();
-var
-  Settings: TRegistry;
-begin
-  activeAccount := '0';
-
-  Settings         := TRegistry.Create;
-  Settings.RootKey := HKEY_CURRENT_USER;
-  if Settings.OpenKey('\Software\PipView\', TRUE) then
-  begin
-    if Settings.ValueExists('activeaccount') then
-      activeAccount := Settings.ReadString('activeaccount');
-  end;
-  Settings.CloseKey;
-end;
-
 procedure TfrmPipMain.LoadSettings;
 var
   Settings: TRegistry;
@@ -367,33 +290,21 @@ begin
     Waarschuwingen := TRUE;
     AutoCheck      := TRUE;
     Interval       := 30;
-    Geluid         := 'Geen';
-    GeluidSpelen   := FALSE;
     WarnVerschil   := 20;
     WarnHoger      := 95;
     bWarnVerschil  := TRUE;
     bWarnHoger     := TRUE;
     bWarnOverschreden := TRUE;
-    Speaker        := FALSE;
-    BallonLimiet   := TRUE;
-    BallonDataverkeer := TRUE;
-    BallonOver     := TRUE;
-    BallonVandaag  := FALSE;
-    BallonPercentages := FALSE;
     AdapterNaam    := '';
     VerbreekPercentage := 99;
     VerbreekVerbinding := FALSE;
     VerbreekVerbindingDag := FALSE;
     VerbreekDataDag := 50;
-    ShowOnStartup  := FALSE;
-    VerhoogLimiet  := FALSE;
-    ProcentInIcoon := FALSE;
-    FlashIcon := FALSE;
   end;
 
   Settings := TRegistry.Create;
   Settings.RootKey := HKEY_CURRENT_USER;
-  if Settings.OpenKey('\Software\PipView\' + activeAccount + '\', TRUE) then
+  if Settings.OpenKey('\Software\PipView\', TRUE) then
   begin
     with Settings do
     begin
@@ -416,16 +327,8 @@ begin
       if ValueExists('checkInterval') then
         Opties.Interval := ReadInteger('checkInterval');
 
-      if ValueExists('warningFlashIcon') then
-        Opties.FlashIcon := ReadBool('warningFlashIcon');
       if ValueExists('warningBallon') then
         Opties.Waarschuwingen := ReadBool('warningBallon');
-      if ValueExists('warningWaveFile') then
-        Opties.Geluid := ReadString('warningWaveFile');
-      if ValueExists('warningWave') then
-        Opties.GeluidSpelen := ReadBool('warningWave');
-      if ValueExists('warningSpeaker') then
-        Opties.Speaker := ReadBool('warningSpeaker');
 
       if ValueExists('warnVerschilValue') then
         Opties.WarnVerschil := ReadInteger('warnVerschilValue');
@@ -440,16 +343,6 @@ begin
 
       if ValueExists('ballonTonen') then
         Opties.ToonBallon := ReadBool('ballonTonen');
-      if ValueExists('ballonLimiet') then
-        Opties.BallonLimiet := ReadBool('ballonLimiet');
-      if ValueExists('ballonDataverkeer') then
-        Opties.BallonDataverkeer := ReadBool('ballonDataverkeer');
-      if ValueExists('ballonOver') then
-        Opties.BallonOver := ReadBool('ballonOver');
-      if ValueExists('ballonVandaag') then
-        Opties.BallonVandaag := ReadBool('ballonVandaag');
-      if ValueExists('ballonPercentages') then
-        Opties.BallonPercentages := ReadBool('ballonPercentages');
 
       if ValueExists('connAdapternaam') then
         Opties.AdapterNaam := ReadString('connAdapternaam');
@@ -466,13 +359,6 @@ begin
         Opties.Left := ReadInteger('windowLeft');
       if ValueExists('windowTop') then
         Opties.Top := ReadInteger('windowTop');
-
-      if ValueExists('algShowOnStartup') then
-        Opties.ShowOnStartup := ReadBool('algShowOnStartup');
-      if ValueExists('algVerhoogLimiet') then
-        Opties.VerhoogLimiet := ReadBool('algVerhoogLimiet');
-      if ValueExists('algProcentInIcoon') then
-        Opties.ProcentInIcoon := ReadBool('algProcentInIcoon');
     end;
     Settings.CloseKey;
   end;
@@ -496,12 +382,6 @@ begin
 
   if Settings.OpenKey('\Software\PipView\', TRUE) then
   begin
-    Settings.WriteString('activeaccount', activeAccount);
-    Settings.CloseKey;
-  end;
-
-  if Settings.OpenKey('\Software\PipView\'+activeAccount+'\', TRUE) then
-  begin
     with Settings do
     begin
       WriteString('naam', Opties.Naam);
@@ -510,10 +390,6 @@ begin
       WriteBool('checkAutomatic', Opties.AutoCheck);
       WriteInteger('checkInterval', Opties.Interval);
 
-      WriteBool('warningFlashIcon', Opties.FlashIcon);
-      WriteBool('warningSpeaker', Opties.Speaker);
-      WriteString('warningWaveFile', Opties.Geluid);
-      WriteBool('warningWave', Opties.GeluidSpelen);
       WriteBool('warningBallon', Opties.Waarschuwingen);
 
       WriteInteger('warnVerschilValue', Opties.WarnVerschil);
@@ -523,11 +399,6 @@ begin
       WriteBool('warnOverschreden', Opties.bWarnOverschreden);
 
       WriteBool('ballonTonen', Opties.ToonBallon);
-      WriteBool('ballonLimiet', Opties.BallonLimiet);
-      WriteBool('ballonDataverkeer', Opties.BallonDataverkeer);
-      WriteBool('ballonOver', Opties.BallonOver);
-      WriteBool('ballonVandaag', Opties.BallonVandaag);
-      WriteBool('ballonPercentages', Opties.BallonPercentages);
 
       WriteString('connAdapternaam', Opties.AdapterNaam);
       WriteBool('connVerbreekVerbinding', Opties.VerbreekVerbinding);
@@ -537,10 +408,6 @@ begin
 
       WriteInteger('windowLeft', Opties.Left);
       WriteInteger('windowTop', Opties.Top);
-
-      WriteBool('algShowOnStartup', Opties.ShowOnStartup);
-      WriteBool('algVerhoogLimiet', Opties.VerhoogLimiet);
-      WriteBool('algProcentInIcoon', Opties.ProcentInIcoon);
     end;
 
     Settings.CloseKey;
@@ -752,9 +619,9 @@ begin
       3:
         Log('Fout: Verwerking gegevens mislukt (Pip kan gewijzigd zijn).');
       4:
-        Log('Fout: Datum van de pc komt niet overeen met PiP-gegevens.');
+        Log('Fout: Datum van de pc valt buiten het bereik van de periode.');
       else
-        Log('Fout: Onbekende fout. Geef dit aub door aan de maker van PipView.');
+        Log('Fout: Onbekende fout. Neem contact op met de maker van PipView.');
     end;
 
     Exit;
@@ -763,9 +630,6 @@ begin
   DataRetrieved := TRUE;
 
   Log('Limiet en dataverkeer opgehaald');
-
-  if Opties.VerhoogLimiet then
-    Dataverkeer.VrijVerkeer := Dataverkeer.VrijVerkeer * 2;
 
   // totaal aantal mb in tooltip zetten
   ntfTray.Hint := 'PipView v' + GetAppVersionInfo + #13#10 + FormatFloat('Totaal: ,0.0 MB', (DataVerkeer.MaandData.Totaal));
@@ -781,44 +645,29 @@ begin
 
   if (Opties.bWarnVerschil and (intDiff >= Opties.WarnVerschil)) then
   begin
-    if Opties.GeluidSpelen and (Opties.Geluid <> 'Geen') then
-      PlaySound(PChar(Opties.Geluid), 0, SND_FILENAME + SND_ASYNC);
+    PlaySound(PChar('PipViewWarning'), 0, SND_ASYNC + SND_ALIAS + SND_APPLICATION);
 
     if Opties.Waarschuwingen then
     begin
       BalloonWrapper('Waarschuwing', 'Pas op! Als u deze maand nog meer wil downloaden, zult u het gebruik nu wat moeten matigen.', 1,15);
       blnBalloonShown := TRUE;
     end;
-
-    if Opties.Speaker then
-      Siren;
-
-    if Opties.FlashIcon then
-      FlashIcon;
   end;
 
   if (Opties.bWarnHoger and (intPercentage >= Opties.WarnHoger) and (intPercentage <= 100)) then
   begin
-    if Opties.GeluidSpelen and (Opties.Geluid <> 'Geen') then
-      PlaySound(PChar(Opties.Geluid), 0, SND_FILENAME + SND_ASYNC);
+    PlaySound(PChar('PipViewWarning'), 0, SND_ASYNC + SND_ALIAS + SND_APPLICATION);
 
     if Opties.Waarschuwingen then
     begin
       BalloonWrapper('Waarschuwing', 'U nadert uw limiet, u zit nu op ' + IntToStr(intPercentage) + ' % van uw dataverkeer.', 1,15);
       blnBalloonShown := TRUE;
     end;
-
-    if Opties.Speaker then
-      Siren;
-
-    if Opties.FlashIcon then
-      FlashIcon;
   end;
 
   if (Opties.bWarnOverschreden and (DataVerkeer.MaandData.Totaal > DataVerkeer.VrijVerkeer)) then
   begin
-    if Opties.GeluidSpelen and (Opties.Geluid <> 'Geen') then
-      PlaySound(PChar(Opties.Geluid), 0, SND_FILENAME + SND_ASYNC);
+    PlaySound(PChar('PipViewWarning'), 0, SND_ASYNC + SND_ALIAS + SND_APPLICATION);
 
     if Opties.Waarschuwingen then
     begin
@@ -843,17 +692,11 @@ begin
       end;
 
       if geldBoete <> 0 then
-        BalloonWrapper('Waarschuwing', 'U heeft uw limiet overschreden!'#13#10#13#10'Wanneer u een Budget-abonnement heeft (of wanneer u geen FUP meer heeft!), kost dit: ' + FormatFloat('0.00 Euro', geldBoete), 1,15)
+        BalloonWrapper('Waarschuwing', 'U heeft uw limiet overschreden!'#13#10#13#10'Wanneer u een Budget-abonnement heeft (of een Plus-abonnement zonder FUP!), kost dit: ' + FormatFloat('0.00 Euro', geldBoete), 1,15)
       else
-        BalloonWrapper('Waarschuwing', 'U heeft uw limiet overschreden!'#13#10#13#10'Er is niet bekend wat de hoogte van uw boete is wanneer u een Budget-abonnement heeft (of wanneer u geen FUP meer heeft!)',1,15);
+        BalloonWrapper('Waarschuwing', 'U heeft uw limiet overschreden!'#13#10#13#10'Er is niet bekend wat de hoogte van uw boete is wanneer u een Budget-abonnement heeft (of een Plus-abonnement zonder FUP!)',1,15);
       blnBalloonShown := TRUE;
     end;
-
-    if Opties.Speaker then
-      Siren;
-
-    if Opties.FlashIcon then
-      FlashIcon;
   end;
 
   if (Opties.VerbreekVerbindingDag and (Dataverkeer.Vandaag.Down + Dataverkeer.Vandaag.Up >= Opties.VerbreekDataDag)) then
@@ -880,23 +723,6 @@ begin
 
   if (Opties.ToonBallon) and (blnBalloonShown = FALSE) then
     ToonBallon;
-end;
-
-procedure TfrmPipMain.FlashIcon;
-var
-  newIcon: TIcon;
-begin
-  iconImages := TImageList.Create(Self);
-  iconImages.Width := 16;
-  iconImages.Height := 16;
-  iconImages.AddIcon(ntfTray.Icon);
-  newIcon := TIcon.Create();
-  newIcon.Handle := LoadIcon(SysInit.HInstance, MakeIntResource(103));
-  iconImages.AddIcon(newIcon);
-  newIcon.Free;
-  ntfTray.IconList := iconImages;
-  ntfTray.CycleInterval := 500;
-  ntfTray.CycleIcons := TRUE;
 end;
 
 procedure TfrmPipMain.ToonWaarden;
@@ -950,62 +776,35 @@ begin
   if (DataPos <> 0) and (DataMax <> 0) then
     sData := FormatFloat('0.0 %', getDataPercentageFloat) + ' ( ' + FormatFloat('0.0 MB', DataVerkeer.MaandData.Totaal) + ' / ' + FormatFloat('0.0 MB', DataVerkeer.VrijVerkeer) + ' )';
 
-  if Visible then
-  begin
-    pgbMaand.Max      := 100;
-    pgbMaand.Position := getPeriodPercentage;
+  pgbMaand.Position := getPeriodPercentage;
+  pgbData.Position := getDataPercentage;
 
-    pgbData.Max      := 100;
-    pgbData.Position := getDataPercentage;
+  steDataWaarde.Caption  := sData;
+  steMaandWaarde.Caption := sMaand;
 
-    steDataWaarde.Caption  := sData;
-    steMaandWaarde.Caption := sMaand;
+  if DataVerkeer.Periode.Start <> 0 then
+    steDag.Caption := 'Dag v/d periode (' + FormatDateTime('d mmmm', DataVerkeer.Periode.Start) + ' t/m ' + FormatDateTime('d mmmm', DataVerkeer.Periode.Eind) + '):';
 
-    if DataVerkeer.Periode.Start <> 0 then
-      steDag.Caption := 'Dag v/d periode (' + FormatDateTime('d mmmm', DataVerkeer.Periode.Start) + ' t/m ' + FormatDateTime('d mmmm', DataVerkeer.Periode.Eind) + '):';
-  end;
-
-  if (DataPos <> 0) or (DataMax <> 0) then
-  begin
-    if (getDataPercentage < 100) then
-    begin
-      if (fBalans <= 0) then
-      begin
-        IconData     := TrayIcon(getDataPercentage, Opties.ProcentInIcoon, clRed);
-        ntfTray.Icon := IconData;
-        IconData.Free;
-      end
-      else
-      begin
-        IconData     := TrayIcon(getDataPercentage, Opties.ProcentInIcoon, clGreen);
-        ntfTray.Icon := IconData;
-        IconData.Free;
-      end;
-    end
-    else
-    begin
-      IconData     := TrayIcon(0, Opties.ProcentInIcoon, clRed);
-      ntfTray.Icon := IconData;
-      IconData.Free;
-    end;
-  end
+  if (DataPos + DataMax > 0) and (getDataPercentage < 100) and (fBalans > 0) then
+    IconData     := TrayIcon(clGreen)
   else
-  begin
-    IconData     := TrayIcon(0, Opties.ProcentInIcoon, clRed);
-    ntfTray.Icon := IconData;
-    IconData.Free;
-  end;
+    IconData     := TrayIcon(clRed);
+
+  ntfTray.Icon := IconData;
+  IconData.Free;
 end;
 
 procedure TfrmPipMain.ZetWaarde(Item: Integer; Tekst: String);
 var
   strItem: TStrings;
 begin
+  if not Visible then
+    Exit;
+
   strItem := TStringList.Create;
   strItem.Add(Tekst);
 
-  if Visible then
-    lstTable.Items[Item].SubItems := strItem;
+  lstTable.Items[Item].SubItems := strItem;
 
   strItem.Free;
 end;
@@ -1014,38 +813,23 @@ procedure TfrmPipMain.ToonBallon;
 var
   strBallon: String;
 begin
-  // ballon met informatie tonen
+  strBallon := strBallon + FormatFloat(',0.0 MB', (DataVerkeer.MaandData.Ontvangen)) + ' Ontvangen'#13#10 +
+                           FormatFloat(',0.0 MB', (DataVerkeer.MaandData.Verstuurd)) + ' Verstuurd'#13#10 +
+                           FormatFloat(',0.0 MB', (DataVerkeer.MaandData.Totaal)) + ' Totaal'#13#10#13#10;
 
-  if Opties.BallonLimiet then
-    strBallon := strBallon + FormatFloat(',0.0 MB', (DataVerkeer.VrijVerkeer)) + ' limiet'#13#10#13#10;
-
-  if Opties.BallonDataverkeer then
+  if (getPeriodLeft <> 0) and (Dataverkeer.VrijVerkeer <> 0) then
   begin
-    strBallon := strBallon + FormatFloat(',0.0 MB', (DataVerkeer.MaandData.Ontvangen)) + ' ontvangen'#13#10 + FormatFloat(',0.0 MB', (DataVerkeer.MaandData.Verstuurd)) + ' verstuurd'#13#10 + FormatFloat(',0.0 MB', (DataVerkeer.MaandData.Totaal)) + ' totaal'#13#10#13#10;
+    strBallon := strBallon + FormatFloat(',0.0 MB', (DataVerkeer.VrijVerkeer - DataVerkeer.MaandData.Totaal)) + ' Over'#13#10 +
+                             FormatFloat(',0.0 MB', (DataVerkeer.VrijVerkeer - DataVerkeer.MaandData.Totaal) / getPeriodLeft) + ' Over per dag'#13#10 +
+                             FormatFloat('+ ,0.0 Mb;- ,0.0 MB', (getPeriodDone * (Dataverkeer.VrijVerkeer / getPeriodLength)) - Dataverkeer.Maanddata.Totaal) + ' Balans'#13#10#13#10;
   end;
 
-  if Opties.BallonOver then
-  begin
-    if getPeriodLeft <> 0 then
-    begin
-      if Dataverkeer.VrijVerkeer <> 0 then
-        strBallon := strBallon + FormatFloat(',0.0 MB', (DataVerkeer.VrijVerkeer - DataVerkeer.MaandData.Totaal)) + ' over'#13#10 + FormatFloat(',0.0 MB', (DataVerkeer.VrijVerkeer - DataVerkeer.MaandData.Totaal) / getPeriodLeft) + ' over per dag'#13#10 + FormatFloat('+ ,0.0 Mb;- ,0.0 MB', (getPeriodDone * (Dataverkeer.VrijVerkeer / getPeriodLength)) - Dataverkeer.Maanddata.Totaal) + ' balans'#13#10 + FormatFloat('+ 0.0 dag(en);- 0.0 dag(en)', getPeriodDone - (Dataverkeer.Maanddata.Totaal * (getPeriodLength / Dataverkeer.VrijVerkeer))) + ' balans'#13#10 + IntToStr(Floor(getPeriodLeft)) + ' dag(en) over'#13#10#13#10
-      else
-        strBallon := strBallon + FormatFloat(',0.0 MB', (DataVerkeer.VrijVerkeer - DataVerkeer.MaandData.Totaal)) + ' over'#13#10 + FormatFloat(',0.0 MB', (DataVerkeer.VrijVerkeer - DataVerkeer.MaandData.Totaal) / getPeriodLeft) + ' over per dag'#13#10 + FormatFloat('+ ,0.0 Mb;- ,0.0 MB', (getPeriodDone * (Dataverkeer.VrijVerkeer / getPeriodLength)) - Dataverkeer.Maanddata.Totaal) + ' balans'#13#10 + IntToStr(Floor(getPeriodLeft)) + ' dag(en) over'#13#10#13#10;
-    end;
-  end;
+  strBallon := strBallon + 'Vandaag:'#13#10 +
+                           FormatFloat(',0.0 MB', DataVerkeer.Vandaag.Down) + ' Download'#13#10 +
+                           FormatFloat(',0.0 MB', DataVerkeer.Vandaag.Up) + ' Upload'#13#10#13#10;
 
-  if Opties.BallonVandaag then
-  begin
-    strBallon := strBallon + FormatFloat(',0.0 MB', DataVerkeer.Vandaag.Down) + ' down vandaag '#13#10 + FormatFloat('0.0 MB', DataVerkeer.Vandaag.Up) + ' up vandaag '#13#10#13#10;
-  end;
-
-  if Opties.BallonPercentages then
-  begin
-    strBallon := strBallon + IntToStr(getDataPercentage) + ' % dataverkeer'#13#10 + IntToStr(getPeriodPercentage) + ' % periode'#13#10#13#10;
-  end;
-
-  strBallon := Copy(strBallon, 0, Length(strBallon) - 4);
+  strBallon := strBallon + IntToStr(getDataPercentage) + ' % Dataverkeer'#13#10 +
+                           IntToStr(getPeriodPercentage) + ' % Periode';
 
   BalloonWrapper('Dataverkeer', strBallon, 0,15);
 end;
@@ -1111,24 +895,12 @@ begin
 
   frmOpties.chkBallon.Checked   := Opties.ToonBallon;
   frmOpties.chkWarnings.Checked := Opties.Waarschuwingen;
-  frmOpties.chkFlashIcon.Checked := Opties.FlashIcon;
-  frmOpties.ediGeluid.Text      := Opties.Geluid;
-  frmOpties.chkGeluid.Checked   := Opties.GeluidSpelen;
-  frmOpties.chkSpeaker.Checked  := Opties.Speaker;
-
-  frmOpties.chkLimiet.Checked         := Opties.BallonLimiet;
-  frmOpties.chkDataverkeer.Checked    := Opties.BallonDataverkeer;
-  frmOpties.chkVerkeerOver.Checked    := Opties.BallonOver;
-  frmOpties.chkVerkeerVandaag.Checked := Opties.BallonVandaag;
-  frmOpties.chkPercentages.Checked    := Opties.BallonPercentages;
 
   frmOpties.chkWarnVerschil.Checked  := Opties.bWarnVerschil;
   frmOpties.chkWarnHoger.Checked     := Opties.bWarnHoger;
   frmOpties.speWarnVerschil.Position := Opties.WarnVerschil;
   frmOpties.speWarnHoger.Position    := Opties.WarnHoger;
   frmOpties.chkWarnOver.Checked      := Opties.bWarnOverschreden;
-
-  frmOpties.chkVerhoogLimiet.Checked := Opties.VerhoogLimiet;
 
   frmOpties.speVerbinding.Position := Opties.VerbreekPercentage;
   frmOpties.chkVerbinding.Checked  := Opties.VerbreekVerbinding;
@@ -1149,8 +921,6 @@ begin
     frmOpties.chkVernieuwen.Checked   := True;
     frmOpties.speBijwerken.Position := Opties.Interval;
   end;
-
-  frmOpties.chkIcoonPercentage.Checked := Opties.ProcentInIcoon;
 
   frmOpties.ShowModal;
 end;
@@ -1179,8 +949,7 @@ end;
 
 procedure TfrmPipMain.actKopierenExecute(Sender: TObject);
 begin
-  Clipboard.AsText :=
-    'Limiet: ' + lstTable.Items.Item[0].SubItems[0] + #13#10#13#10 + 'Ontvangen: ' + lstTable.Items.Item[2].SubItems[0] + #13#10 + 'Verstuurd: ' + lstTable.Items.Item[3].SubItems[0] + #13#10 + 'Totaal: ' + lstTable.Items.Item[4].SubItems[0] + #13#10#13#10 + 'Over: ' + lstTable.Items.Item[6].SubItems[0] + #13#10 + 'Dagen over: ' + lstTable.Items.Item[7].SubItems[0] + #13#10 + 'Vandaag verbruikt/Over per dag: ' + lstTable.Items.Item[8].SubItems[0] + #13#10 + 'Balans: ' + lstTable.Items.Item[9].SubItems[0];
+  Clipboard.AsText := 'Limiet: ' + lstTable.Items.Item[0].SubItems[0] + #13#10#13#10 + 'Ontvangen: ' + lstTable.Items.Item[2].SubItems[0] + #13#10 + 'Verstuurd: ' + lstTable.Items.Item[3].SubItems[0] + #13#10 + 'Totaal: ' + lstTable.Items.Item[4].SubItems[0] + #13#10#13#10 + 'Over: ' + lstTable.Items.Item[6].SubItems[0] + #13#10 + 'Dagen over: ' + lstTable.Items.Item[7].SubItems[0] + #13#10 + 'Vandaag verbruikt/Over per dag: ' + lstTable.Items.Item[8].SubItems[0] + #13#10 + 'Balans: ' + lstTable.Items.Item[9].SubItems[0];
 end;
 
 procedure TfrmPipMain.WndProc(var Message: TMessage);
@@ -1319,51 +1088,6 @@ begin
     Result := 0;
 end;
 
-procedure TfrmPipMain.FillMenus;
-var
-  Item, SubItem: TMenuItem;
-  Adapters: TStringList;
-  iCount: Integer;
-  AdapterAdded: Boolean;
-begin
-  AdapterAdded := FALSE;
-  Adapters     := TStringList.Create;
-  GetAdaptersList(Adapters);
-
-  for iCount := 0 to Adapters.Count - 1 do
-  begin
-    if (Adapters.Names[iCount] <> '0') then
-    begin
-      AdapterAdded := TRUE;
-      Item         := TMenuItem.Create(Self);
-      Item.Tag     := 1;
-      Item.Caption := ShorterString(Adapters.ValueFromIndex[iCount], 32);
-      Item.Hint    := 'Informatie over deze adapter';
-
-      SubItem         := TMenuItem.Create(Self);
-      SubItem.Caption := 'IP-adres vrijgeven';
-      SubItem.Tag     := StrToInt(Adapters.Names[iCount]);
-      SubItem.OnClick := VerbreekClick;
-      SubItem.Hint    := 'Verbinding van deze netwerkadapter verbreken';
-      Item.Add(SubItem);
-
-      SubItem         := TMenuItem.Create(Self);
-      SubItem.Caption := 'IP-adres vernieuwen';
-      SubItem.Tag     := StrToInt(Adapters.Names[iCount]);
-      SubItem.OnClick := VernieuwClick;
-      SubItem.Hint    := 'Verbinding van deze netwerkadapter herstellen';
-      Item.Add(SubItem);
-
-      Verbinding1.Add(Item);
-    end;
-  end;
-
-  Adapters.Free;
-
-  Verbinding1.Enabled := AdapterAdded;
-  Verbindingverbreken1.Enabled := AdapterAdded;
-end;
-
 procedure TfrmPipMain.VernieuwClick(Sender: TObject);
 var
   Index: Integer;
@@ -1392,7 +1116,7 @@ procedure TfrmPipMain.ntfTrayStartup(Sender: TObject; var ShowMainForm: Boolean)
 var
   IconData: TIcon;
 begin
-  IconData     := TrayIcon(0, TRUE, clRed);
+  IconData     := TrayIcon(clRed);
   ntfTray.Icon := IconData;
   ntfTray.IconVisible := TRUE;
   IconData.Free;
@@ -1576,226 +1300,6 @@ begin
   end;
 end;
 
-function TfrmPipMain.getAccounts: TStringList;
-var
-  Settings: TRegistry;
-  keyNames: TStringList;
-  iKey: Integer;
-begin
-  Result := TStringList.Create;
-
-  Settings         := TRegistry.Create;
-  Settings.RootKey := HKEY_CURRENT_USER;
-  if Settings.OpenKey('\Software\PipView\', TRUE) then
-  begin
-    keyNames := TStringList.Create;
-    Settings.GetKeyNames(keyNames);
-    Settings.CloseKey;
-
-    for iKey := 0 to keyNames.Count - 1 do
-    begin
-      if Settings.OpenKey('\Software\PipView\' + keyNames.Strings[iKey] + '\', FALSE) then
-      begin
-        if Settings.ValueExists('naam') then
-          Result.Add(Settings.ReadString('naam') + '=' + keyNames.Strings[iKey]);
-      end;
-    end;
-
-    keyNames.Free;
-  end;
-  Settings.Free;
-end;
-
-procedure TfrmPipMain.fillAccountsMenu();
-var
-  newMenuItem: TMenuItem;
-  iAccount, iMenuCount: Integer;
-begin
-  accountsList := getAccounts;
-  iMenuCount := 0;
-
-  Accounts.Clear;
-
-  newMenuItem          := TMenuItem.Create(Accounts);
-  newMenuItem.Caption  := 'Accounts bewerken...';
-  newMenuItem.OnClick  := AccountsClick;
-  newMenuItem.ShortCut := ShortCut(Word(IntToStr(iMenuCount)[1]), [ssCtrl]);
-  newMenuItem.Tag      := -1;
-
-  Accounts.Add(newMenuItem);
-
-  newMenuItem := TMenuItem.Create(Accounts);
-  newMenuItem.Caption := '-';
-
-  Accounts.Add(newMenuItem);
-
-  for iAccount := 0 to accountsList.Count - 1 do
-  begin
-    Inc(iMenuCount);
-    newMenuItem           := TMenuItem.Create(Accounts);
-    newMenuItem.RadioItem := TRUE;
-    newMenuItem.Checked   := (activeAccount = accountsList.ValueFromIndex[iAccount]);
-    newMenuItem.Caption   := accountsList.Names[iAccount];
-    newMenuItem.ShortCut  := ShortCut(Word(IntToStr(iMenuCount)[1]), [ssCtrl]);
-    newMenuItem.OnClick   := AccountsClick;
-    newMenuItem.Tag       := iAccount;
-
-    Accounts.Add(newMenuItem);
-  end;
-end;
-
-procedure TfrmPipMain.WMFillMenu(var Msg: TMessage);
-begin
-  if Msg.LParam = 4 then
-  begin
-    fillAccountsMenu;
-    Refresh;
-  end;
-
-  if Msg.LParam = 2 then
-  begin
-    fillAccountsMenu;
-    loadSettings;
-  end;
-end;
-
-procedure TfrmPipMain.AccountsClick(Sender: TObject);
-var
-  frmAccounts: TfrmAccounts;
-begin
-  if ((Sender as TMenuItem).Tag <> -1) then
-  begin
-    saveSettings;
-    activeAccount := accountsList.ValueFromIndex[(Sender as TMenuItem).Tag];
-    loadSettings;
-    Caption := 'PipView ' + GetAppVersionInfo + ' (' + Opties.Naam + ')';
-    PostMessage(Handle, WM_FILLMENU, 0, 4);
-  end
-  else
-  begin
-    frmAccounts := TfrmAccounts.Create(Self);
-    frmAccounts.ShowModal;
-    PostMessage(Handle, WM_FILLMENU, 0, 2);
-  end;
-end;
-
-procedure TDataLimietThread.Execute;
-var
-  regE: TRegExpr;
-  periodeNummer, periodeJaar: Integer;
-  strPeriode1, strPeriode2: String;
-begin
-  Login(frmPipMain.Opties.Naam, frmPipMain.Opties.Wachtwoord);
-
-  regE := TRegExpr.Create;
-  //regE.ModifierS := True;
-
-  periodeNummer := Dataverkeer.Periode.Nummer;
-  periodeJaar := Dataverkeer.Periode.Jaar;
-
-  periodeNummer := periodeNummer - 1;
-  if periodeNummer = 0 then
-  begin
-    periodeNummer := 12;
-    periodeJaar := periodeJaar - 1;
-  end;
-
-  strPeriode1 := GetHTTP('https://secure.zeelandnet.nl/pip/index.php?page=202&show=1&periode='+IntToStr(periodeNummer)+'-'+IntToStr(periodeJaar));
-
-  periodeNummer := periodeNummer - 1;
-  if periodeNummer = 0 then
-  begin
-    periodeNummer := 12;
-    periodeJaar := periodeJaar - 1;
-  end;
-
-  strPeriode2 := GetHTTP('https://secure.zeelandnet.nl/pip/index.php?page=202&show=1&periode='+IntToStr(periodeNummer)+'-'+IntToStr(periodeJaar));
-
-  regE.Expression := 'U heeft deze periode in totaal <b>(.*?)<\/b> verbruikt.';
-  if regE.Exec(strPeriode1) then
-  begin
-    VorigeData.Data1 := FilterString(regE.Match[1]);
-    regE.Expression := 'U heeft deze periode in totaal <b>(.*?)<\/b> verbruikt.';
-    if regE.Exec(strPeriode2) then
-    begin
-      VorigeData.Data2 := FilterString(regE.Match[1]);
-    end;
-  end;
-
-  Logoff;
-end;
-
-procedure TfrmPipMain.DataThreadDoneLimietSecond(Sender: TObject);
-begin
-  ThreadRuns    := FALSE;
-  Screen.Cursor := crDefault;
-
-  if (VorigeData.Data1 <= Dataverkeer.VrijVerkeer) and (VorigeData.Data2 <= Dataverkeer.VrijVerkeer) then
-  begin
-    if Opties.VerhoogLimiet then
-    begin
-      ShowMessage('Wanneer u een Plus-abonnement heeft, mag u uw limiet deze periode met 100%'#13#10'overschrijden omdat u de afgelopen twee perioden onder uw limiet bent gebleven.'#13#10#13#10'Uit de instellingen van PipView blijkt dat u uw limiet al handmatig heeft verdubbeld.'+#13#10#13#10+'Let op: als u twijfelt aan deze informatie, raadpleeg dan de website van ZeelandNet!');
-    end
-    else
-    begin
-      if (MessageBox(Handle, 'Wanneer u een Plus-abonnement heeft, mag u uw limiet deze periode met 100%'#13#10'overschrijden omdat u de afgelopen twee perioden onder uw limiet bent gebleven.'#13#10#13#10'Wilt u dat PipView deze limietverhoging nu automatisch voor u uitvoert?'+#13#10#13#10+'Let op: als u twijfelt aan deze informatie, raadpleeg dan de website van ZeelandNet!','PipView', MB_YESNO + MB_ICONWARNING + MB_DEFBUTTON2) = IDYES) then
-      begin
-        Opties.VerhoogLimiet := TRUE;
-        Dataverkeer.VrijVerkeer := Dataverkeer.VrijVerkeer * 2;
-        ToonWaarden;
-        frmOpties.OldState := TRUE;
-      end;
-    end;
-  end
-  else
-    ShowMessage('De afgelopen twee perioden bent u minstens één keer over uw huidige limiet gegaan.'#13#10'Opnieuw overschrijden van de limiet is dus gevaarlijk, tenzij u met ZeelandNet heeft'#13#10'afgesproken bij te betalen per overschreden MB.'+#13#10#13#10+'Let op: als u twijfelt aan deze informatie, raadpleeg dan de website van ZeelandNet!');
-end;
-
-procedure TfrmPipMain.DataThreadDoneLimiet(Sender: TObject);
-var
-  DataLimietThread: TDataLimietThread;
-begin
-  ThreadRuns    := FALSE;
-  Screen.Cursor := crDefault;
-  DataRetrieved := TRUE;
-
-  if (Dataverkeer.Periode.Nummer > 0) and (Dataverkeer.Periode.Jaar > 0) then
-  begin
-    Screen.Cursor := crHourGlass;
-
-    if ThreadRuns = FALSE then
-    begin
-      ThreadRuns := TRUE;
-      DataLimietThread := TDataLimietThread.Create(TRUE);
-      DataLimietThread.Priority := tpLowest;
-      DataLimietThread.OnTerminate := DataThreadDoneLimietSecond;
-      DataLimietThread.FreeOnTerminate := TRUE;
-      DataLimietThread.Resume;
-    end;
-  end
-  else
-  begin
-    ShowMessage('Door een fout tijdens het ophalen van de gegevens is het niet mogelijk informatie te geven over uw limiet in de vorige perioden.');
-  end;
-end;
-
-procedure TfrmPipMain.actLimietExecute(Sender: TObject);
-var
-  DataThread: TDataThread;
-begin
-  Screen.Cursor := crHourGlass;
-
-  if ThreadRuns = FALSE then
-  begin
-    ThreadRuns := TRUE;
-    DataThread := TDataThread.Create(TRUE);
-    DataThread.Priority := tpLowest;
-    DataThread.OnTerminate := DataThreadDoneLimiet;
-    DataThread.FreeOnTerminate := TRUE;
-    DataThread.Resume;
-  end;
-end;
-
 procedure TfrmPipMain.Verbindingverbreken1Click(Sender: TObject);
 var
   intAdapterIndex: Integer;
@@ -1823,6 +1327,18 @@ end;
 procedure TfrmPipMain.lstTableSelectItem(Sender: TObject; Item: TListItem;  Selected: Boolean);
 begin
   Item.Selected := FALSE;
+end;
+
+procedure TfrmPipMain.Verbindingherstellen1Click(Sender: TObject);
+var
+  intAdapterIndex: Integer;
+begin
+  intAdapterIndex := AdapterNameToIndex(Opties.AdapterNaam);
+  if intAdapterIndex <> -1 then
+  begin
+    DHCPPerform(FALSE, intAdapterIndex);
+    BalloonWrapper('Informatie', 'Uw internetverbinding is door PipView hersteld!', 0,15);
+  end;
 end;
 
 end.

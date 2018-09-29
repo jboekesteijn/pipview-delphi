@@ -17,7 +17,7 @@ BLOCK "VarFileInfo"
 {
 VALUE "Translation", 0x0413 0x04E4
 }}
-MAINICON ICON "graphics\icon.ico"
-101 ICON "graphics\ie_icon.ico"
-102 ICON "graphics\ie_dpip_icon.ico"
-103 ICON "graphics\empty.ico"
+MAINICON ICON "..\..\graphics\icon.ico"
+101 ICON "..\..\graphics\ie_icon.ico"
+102 ICON "..\..\graphics\ie_dpip_icon.ico"
+103 BITMAP "..\..\graphics\icon.bmp"

@@ -5,7 +5,6 @@ uses
   Forms,
   main in 'main.pas' {frmPipMain},
   opties in 'opties.pas' {frmOpties},
-	accounts in 'accounts.pas' {frmAccounts},
   tools in 'tools.pas';
 
 {$R resource.res}

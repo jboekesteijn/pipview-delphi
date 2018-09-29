@@ -23,7 +23,7 @@ BrandingText "(c) 2001-2004 Joost-Wim Boekesteijn"
 
 ; Options
 ; =======
-OutFile "binaries\pipview-0994.exe"
+OutFile ".\..\..\binaries\pipview-0994.exe"
 InstallDir "$PROGRAMFILES\PipView"
 InstallDirRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PipView" "InstallDirectory"
 ShowInstDetails nevershow
@@ -61,8 +61,8 @@ Section "!PipView" SecPipView
 	SetOutPath $INSTDIR
 	SectionIn 1 2 RO
 
-	File "..\binaries\pipview.exe"
-	File "..\binaries\pipview.chm"
+	File "..\..\binaries\pipview.exe"
+	File "..\..\binaries\pipview.chm"
 
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PipView" "InstallDirectory" "$INSTDIR"
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PipView" "DisplayName" "PipView"
@@ -73,6 +73,8 @@ Section "!PipView" SecPipView
 	WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PipView" "NoRepair" 1
 	WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PipView" "NoModify" 1
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PipView" "UninstallString" '"$INSTDIR\uninstall.exe"'
+	WriteRegStr HKCU "AppEvents\EventLabels\PipViewWarning" "" "Waarschuwing"
+	WriteRegStr HKCU "AppEvents\Schemes\Apps\PipView\PipViewWarning\.Default" "" "ringin.wav"
 
 	WriteUninstaller "uninstall.exe"
 SectionEnd
@@ -92,7 +94,7 @@ SectionEnd
 
 Section "PipView automatisch opstarten" SecOpstarten
 	SectionIn 1 2
-	CreateShortCut "$SMSTARTUP\PipView.lnk" "$INSTDIR\pipview.exe" "--startup"
+	CreateShortCut "$SMSTARTUP\PipView.lnk" "$INSTDIR\pipview.exe"
 SectionEnd
 
 Section "Knoppen in Internet Explorer maken" SecIE
@@ -143,7 +145,7 @@ Function .onInit
 FunctionEnd
 
 Function EnterLogin
-	ReadRegStr $0 HKCU "Software\PipView\0" "naam"
+	ReadRegStr $0 HKCU "Software\PipView" "naam"
 
 	StrCmp $0 "" input noinput
 	noinput:
@@ -157,8 +159,8 @@ Function LeaveLogin
 	!insertmacro MUI_INSTALLOPTIONS_READ $0 "pipview_installer.ini" "Field 3" "State"
 	!insertmacro MUI_INSTALLOPTIONS_READ $1 "pipview_installer.ini" "Field 4" "State"
 
-	WriteRegStr HKCU "Software\PipView\0" "naam" $0
-	WriteRegStr HKCU "Software\PipView\0" "wachtwoord_raw" $1
+	WriteRegStr HKCU "Software\PipView" "naam" $0
+	WriteRegStr HKCU "Software\PipView" "wachtwoord_raw" $1
 FunctionEnd
 
 ; Uninstaller Functions
@@ -186,4 +188,6 @@ Section "Uninstall"
 	DeleteRegKey HKCU "Software\Microsoft\Internet Explorer\Extensions\{7B5014FC-EBE9-403E-830C-C8E27CC1E4AE}"
 	DeleteRegKey HKCU "Software\Microsoft\Internet Explorer\Extensions\{363410CB-D0DD-496b-BC10-992C6E0A091A}"
 	DeleteRegKey HKCU "Software\PipView"
+	DeleteRegKey HKCU "AppEvents\EventLabels\PipViewWarning"
+	DeleteRegKey HKCU "AppEvents\Schemes\Apps\PipView"
 SectionEnd

@@ -8,35 +8,39 @@ uses
   WinInet;
 
 type
-  TBeep = class(TThread)
-    procedure Execute; override;
-  end;
-
-type
   TUpdateInfo = record
     Versie: String;
     URL: String;
     Fouten: Integer;
   end;
 
-function TrayIcon(Value: Integer; Text: Boolean; Color: TColor): TIcon;
+{ TrayIcon geeft een TIcon terug dat geschikt is voor weergave in de
+  system tray. }
+function TrayIcon(Color: TColor): TIcon;
+
+{ GetAppVersionInfo geeft een String terug met daarin het versienummer
+  van PipView. }
 function GetAppVersionInfo: String;
+
 function FilterString(strInput: String): Single;
+
+{ StrToDate zet een String om naar het TDateTime-formaat, en gaat daarbij
+	uit van de nederlands datumnotatie, zoals die op de website van ZeelandNet
+	gebruikt wordt. }
 function StrToDate(strDatum: String): TDateTime;
+
 function Encrypt(Data: String): String;
 function Decrypt(Data: String): String;
 function AdapterNameToIndex(Description: String): Integer;
 function DHCPPerform(ReleaseRenew: Boolean; Index: Cardinal): Integer;
 function ShorterString(Text: String; Characters: Integer): String;
 function javaScriptEncode(inString: String): String;
-
-procedure GetAdaptersList(var Adapters: TStringList);
-procedure DoBeep(Freq, Duration: Longword);
-procedure Siren;
-
 function getHttp(getUrl: String): String;
-procedure Logoff;
 function Login(Naam, Wachtwoord: String): Integer;
+
+procedure Control_RunDLL(hwnd: THandle; hInst: THandle; CmdLine: PChar; CmdShow: Integer); stdcall; external 'Shell32.dll';
+procedure Logoff;
+procedure GetAdaptersList(var Adapters: TStringList);
 
 implementation
 
@@ -54,17 +58,6 @@ begin
 end;
 
 function StrToDate(strDatum: String): TDateTime;
-{
-    StrToDate zet een string om naar het TDateTime-formaat, en gaat daarbij
-    uit van de nederlands datumnotatie, zoals die op de website van ZeelandNet
-    gebruikt wordt.
-
-    Argumenten:
-        strDatum:   een string in het formaat '5 januari 2002'
-
-    Terug:
-        TDateTime:  bevat de datum in TDateTime-formaat
-}
 var
   intDag, intMaand, intJaar: Integer;
   regEx: TRegExpr;
@@ -137,96 +130,38 @@ begin
   DecimalSeparator := oldDecimalSeparator;
 end;
 
-function TrayIcon(Value: Integer; Text: Boolean; Color: TColor): TIcon;
+function TrayIcon(Color: TColor): TIcon;
 var
   Bitmap: TBitmap;
-  strText: String;
   iX, iY: Integer;
-  iX2, iY2: Integer;
   AndMask: TBitmap;
   IconInfo: TIconInfo;
+  Pixel: TColor;
 begin
   Bitmap := TBitmap.Create;
+  Bitmap.LoadFromResourceID(HInstance, 103);
 
-  Bitmap.Width  := 16;
-  Bitmap.Height := 16;
-
-  Bitmap.Canvas.Brush.Color := ClBlack;
-
-  Bitmap.Canvas.FillRect(Rect(0,0,16,16));
-  Bitmap.Canvas.Pen.Color   := Color;
-  Bitmap.Canvas.Brush.Color := Color;
-  Bitmap.Canvas.RoundRect(0,0,16,16,2,2);
-
-  if (Text) and (Value > 0) then
+  // RGB -> BGR
+  if Color = clGreen then
   begin
-    strText := IntToStr(Value);
-    Bitmap.Canvas.Font.Size  := 8;
-    Bitmap.Canvas.Font.Name  := 'MS Sans Serif';
-    Bitmap.Canvas.Font.Color := clWhite;
-
-    iX := Round((16 - Bitmap.Canvas.TextWidth(strText)) / 2);
-    iY := Round((16 - Bitmap.Canvas.TextHeight(strText)) / 2);
-
-    Bitmap.Canvas.TextOut(iX, iY, strText);
-  end
-  else begin
-    Bitmap.Canvas.Pixels[6,4] := clWhite;
-    Bitmap.Canvas.Pixels[7,4] := clWhite;
-    Bitmap.Canvas.Pixels[8,4] := clWhite;
-    Bitmap.Canvas.Pixels[9,4] := clWhite;
-    Bitmap.Canvas.Pixels[10,4] := clWhite;
-
-    Bitmap.Canvas.Pixels[7,5] := clWhite;
-    Bitmap.Canvas.Pixels[10,5] := clWhite;
-    Bitmap.Canvas.Pixels[11,5] := clWhite;
-
-    Bitmap.Canvas.Pixels[7,6] := clWhite;
-    Bitmap.Canvas.Pixels[10,6] := clWhite;
-    Bitmap.Canvas.Pixels[11,6] := clWhite;
-
-    Bitmap.Canvas.Pixels[6,7] := clWhite;
-    Bitmap.Canvas.Pixels[7,7] := clWhite;
-    Bitmap.Canvas.Pixels[10,7] := clWhite;
-
-    Bitmap.Canvas.Pixels[6,8] := clWhite;
-    Bitmap.Canvas.Pixels[7,8] := clWhite;
-    Bitmap.Canvas.Pixels[8,8] := clWhite;
-    Bitmap.Canvas.Pixels[9,8] := clWhite;
-
-    Bitmap.Canvas.Pixels[6,9] := clWhite;
-
-    Bitmap.Canvas.Pixels[5,10] := clWhite;
-    Bitmap.Canvas.Pixels[6,10] := clWhite;
-
-    Bitmap.Canvas.Pixels[4,11] := clWhite;
-    Bitmap.Canvas.Pixels[5,11] := clWhite;
-    Bitmap.Canvas.Pixels[6,11] := clWhite;
-    Bitmap.Canvas.Pixels[7,11] := clWhite;
-  end;
-
-  if Text = FALSE then
-  begin
-    for iX2 := 0 to 16 do
+    for iX := 0 to 16 do
     begin
-      for iY2 := 0 to 16 do
+      for iY := 0 to 16 do
       begin
-        if Round((iY2 / 16) * 100) <= Value then
-          if Bitmap.Canvas.Pixels[iX2, 16 - iY2] = Color then
-            Bitmap.Canvas.Pixels[iX2, 16 - iY2] := clBlue;
+        Pixel := Bitmap.Canvas.Pixels[iX, iY];
+        Bitmap.Canvas.Pixels[iX, iY] := RGB(GetBValue(Pixel),GetGValue(Pixel),GetRValue(Pixel));
       end;
     end;
   end;
 
+  // Converteer de bitmap naar een icoon mbv een masker (alle pixels meenemen)
   AndMask            := TBitmap.Create;
   AndMask.Monochrome := TRUE;
   AndMask.Width      := 16;
   AndMask.Height     := 16;
 
-  AndMask.Canvas.Brush.Color := clWhite;
-  AndMask.Canvas.FillRect(Rect(0,0,16,16));
   AndMask.Canvas.Brush.Color := clBlack;
-  AndMask.Canvas.RoundRect(0,0,16,16,2,2);
+  AndMask.Canvas.FillRect(Rect(0,0,16,16));
 
   Result            := TIcon.Create;
   IconInfo.fIcon    := TRUE;
@@ -245,66 +180,23 @@ begin
   Result := '0.9.9.4';
 end;
 
-procedure Sound(Freq: Word);
-asm
-  MOV DX, AX
-  in AL, $61
-  MOV AH, AL
-  and AL, 3
-  JNE @@1
-  MOV AL, AH
-  or AL, 3
-  out $61, AL
-  MOV AL, $B6
-  out $43, AL
-  @@1:
-  MOV AX, DX
-  out $42, AL
-  MOV AL, AH
-  out $42, AL
-end;
-
-procedure NoSound;
-asm
-  in AL, $61
-  and AL, $FC
-  out $61, AL
-end;
-
-procedure TBeep.Execute;
-var
-  iFreq: Integer;
+function getOsDescription(): String;
 begin
-  for iFreq := 30 to 100 do
-    DoBeep(iFreq * 10, 1);
+  Result := 'Windows';
 
-  for iFreq := 100 downto 30 do
-    DoBeep(iFreq * 10, 1);
-end;
-
-procedure DoBeep(Freq, Duration: Longword);
-begin
-  if Win32Platform = VER_PLATFORM_WIN32_NT then
-    Windows.Beep(Freq, Duration)
-  else
+  if (Win32Platform = VER_PLATFORM_WIN32_WINDOWS) then
   begin
-    if Freq < 20 then
-      Freq := 20;
-    if Freq > 5000 then
-      Freq := 5000;
-    Sound(1193181 div Freq);
-    Sleep(Duration);
-    NoSound;
+    if (Win32MajorVersion = 4) and (Win32MinorVersion = 0) then
+      Result := 'Windows 95' // Windows 95
+    else if (Win32MajorVersion = 4) and (Win32MinorVersion = 10) then
+      Result := 'Windows 98' // Windows 98
+    else if (Win32MajorVersion = 4) and (Win32MinorVersion = 90) then
+      Result := 'Windows Me' // Windows Me
+  end
+  else if (Win32Platform = VER_PLATFORM_WIN32_NT) then
+	begin
+		Result := Format('Windows NT %d.%d', [Win32MajorVersion, Win32MinorVersion]);
   end;
-end;
-
-procedure Siren;
-var
-  Beep: TBeep;
-begin
-  Beep := TBeep.Create(TRUE);
-  Beep.FreeOnTerminate := TRUE;
-  Beep.Resume;
 end;
 
 function Encrypt(Data: String): String;
@@ -500,7 +392,7 @@ begin
 
   InternetCrackUrl(PAnsiChar(getUrl), Length(getUrl), ICU_DECODE, UrC);
 
-  hSession := InternetOpen(PAnsiChar('PipView/'+GetAppVersionInfo), INTERNET_OPEN_TYPE_PRECONFIG, NIL, NIL, 0);
+  hSession := InternetOpen(PAnsiChar('PipView/'+GetAppVersionInfo + ' ('+getOsDescription()+')'), INTERNET_OPEN_TYPE_PRECONFIG, NIL, NIL, 0);
 
   if hSession <> NIL then
   begin
@@ -548,7 +440,7 @@ begin
   PostData    := '';
   Header      := '';
 
-  hSession := InternetOpen(PAnsiChar('PipView/'+GetAppVersionInfo), INTERNET_OPEN_TYPE_PRECONFIG, NIL, NIL, 0);
+  hSession := InternetOpen(PAnsiChar('PipView/'+GetAppVersionInfo + ' ('+getOsDescription()+')'), INTERNET_OPEN_TYPE_PRECONFIG, NIL, NIL, 0);
 
   if hSession <> NIL then
   begin
@@ -560,9 +452,9 @@ begin
 
       if hRequest <> NIL then
       begin
-        Postdata := 'login_name=%s&login_pass=%s&login_type=abonnee&action=login&from=https://secure.zeelandnet.nl/pip/index.php';
-        Header   := 'Content-type: application/x-www-form-urlencoded'#13#10;
+        Header   := 'Content-type: application/x-www-form-urlencoded';
 
+        Postdata := 'login_name=%s&login_pass=%s&login_type=abonnee&action=login';
         Postdata := Format(Postdata, [Naam, Wachtwoord]);
 
         if HttpAddRequestHeaders(hRequest, PChar(Header), Length(Header), HTTP_ADDREQ_FLAG_ADD) then

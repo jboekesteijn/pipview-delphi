@@ -90,7 +90,7 @@ MaxStackSize=1048576
 ImageBase=4194304
 ExeDescription=PipView
 [Directories]
-OutputDir=binaries\
+OutputDir=..\..\binaries\
 UnitOutputDir=
 PackageDLLOutputDir=
 PackageDCPOutputDir=
@@ -130,14 +130,3 @@ OriginalFilename=
 ProductName=
 ProductVersion=1.0.0.0
 Comments=
-[HistoryLists\hlUnitAliases]
-Count=1
-Item0=WinTypes=Windows;WinProcs=Windows;DbiTypes=BDE;DbiProcs=BDE;DbiErrs=BDE;
-[HistoryLists\hlSearchPath]
-Count=3
-Item0=$(DELPHI)\Lib\Jwa;$(DELPHI)\Lib\NoScrollListView;$(DELPHI)\Lib\RegExpr;$(DELPHI)\Lib\Mime;$(DELPHI)\Lib\Cooltray;$(DELPHI)\Lib\Balloon
-Item1=$(DELPHI)\Lib\Debug;$(DELPHI)\Lib\Jwa;$(DELPHI)\Lib\NoScrollListView;$(DELPHI)\Lib\RegExpr;$(DELPHI)\Lib\Mime;$(DELPHI)\Lib\Cooltray;$(DELPHI)\Lib\Balloon
-Item2=$(DELPHI)\Lib\Jwa;$(DELPHI)\Lib\NoScrollListView;$(DELPHI)\Lib\RegExpr;$(DELPHI)\Lib\Trend;$(DELPHI)\Lib\Mime;$(DELPHI)\Lib\Cooltray;$(DELPHI)\Lib\Balloon
-[HistoryLists\hlOutputDirectorry]
-Count=1
-Item0=binaries\
