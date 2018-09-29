@@ -3,9 +3,15 @@ unit tools;
 interface
 
 uses
-  Windows, Classes, DiMime, RegExpr, IniFiles, SysUtils,
+  Windows, Classes, RegExpr, IniFiles, SysUtils,
   Graphics, JwaIpHlpApi, JwaIpTypes, JwaIpExport,
   WinInet;
+
+const MonthNames : Array [1 .. 12] Of String
+       = ( 'Jan','Feb','Mar','Apr','May','Jun',
+           'Jul','Aug','Sep','Oct','Nov','Dec');
+const DayNames : Array [1 .. 7] Of String
+       = ('Sun','Mon','Tue','Wed','Thu','Fri','Sat');
 
 type
   TUpdateInfo = record
@@ -34,28 +40,15 @@ function Decrypt(Data: String): String;
 function AdapterNameToIndex(Description: String): Integer;
 function DHCPPerform(ReleaseRenew: Boolean; Index: Cardinal): Integer;
 function ShorterString(Text: String; Characters: Integer): String;
-function javaScriptEncode(inString: String): String;
 function getHttp(getUrl: String): String;
 function Login(Naam, Wachtwoord: String): Integer;
 
 procedure Control_RunDLL(hwnd: THandle; hInst: THandle; CmdLine: PChar; CmdShow: Integer); stdcall; external 'Shell32.dll';
-procedure Logoff;
 procedure GetAdaptersList(var Adapters: TStringList);
 
 implementation
 
 uses main;
-
-function javaScriptEncode(inString: String): String;
-var
-  iCount: Integer;
-begin
-  Result := '';
-  for iCount := 1 to Length(inString) do
-  begin
-    Result := Result + '%'+IntToHex(Ord(inString[iCount]),2);
-  end;
-end;
 
 function StrToDate(strDatum: String): TDateTime;
 var
@@ -199,31 +192,41 @@ begin
   end;
 end;
 
-function Encrypt(Data: String): String;
+procedure Shift(var Data: String);
 var
   Count: Integer;
 begin
   for Count := 1 to Length(Data) do
-  begin
-    Data[Count] := Chr(Ord(Data[Count]) xor 1);
-  end;
+    Data[Count] := Chr(Ord(Data[Count]) xor Count);
+end;
 
-  Data   := MimeEncodeString(Data);
-  Result := Data;
+function Encrypt(Data: String): String;
+var
+  Count: Integer;
+begin
+  Shift(Data);
+
+  for Count := 1 to Length(Data) do
+    Result := Result + IntToHex(Ord(Data[Count]), 2);
 end;
 
 function Decrypt(Data: String): String;
 var
   Count: Integer;
 begin
-  Data := MimeDecodeString(Data);
+  Count := 1;
 
-  for Count := 1 to Length(Data) do
+  while Count < Length(Data) do
   begin
-    Data[Count] := Chr(Ord(Data[Count]) xor 1);
+    try
+      Result := Result + Chr(StrToInt('$' + Data[Count] + Data[Count + 1]));
+    except
+      on EConvertError do Result := '';
+    end;
+    Inc(Count, 2);
   end;
 
-  Result := Data;
+  Shift(Result);
 end;
 
 function checkLibrary(libName: String): Boolean;
@@ -346,10 +349,103 @@ begin
     Result := Copy(Text, 0,Characters - 3) + '...';
 end;
 
-procedure Logoff;
+function getNextYear(): String;
+var
+  D, M, Y: Word;
+  DateIn: TDateTime;
 begin
-  getHttp('https://secure.zeelandnet.nl/logout/index.php?from=pip');
+  DateIn := Now() + 356;
+  DecodeDate( DateIn, Y, M, D );
+  Result := DayNames[DayOfWeek( DateIn )]
+            + ', ' + IntToStr(D) + '-'
+            + MonthNames[M] + '-'
+            + IntToStr(Y) + ' 00:00:00 GMT';
 end;
+
+function Login(Naam, Wachtwoord: String): Integer;
+var
+  hSession, hConnection, hRequest: HINTERNET;
+  PostData, Header: String;
+  Data, RawHeader: TStringStream;
+  Buffer: array[0..1024] of Byte;
+  RawBuffer: array[0..1024] of Byte;
+  ReadResult: Longbool;
+  ReadBytes, Context, Reserved, BufSize: Cardinal;
+  Cookie: TRegExpr;
+begin
+  Result      := 0;
+  Data        := TStringStream.Create('');
+  RawHeader   := TStringStream.Create('');
+  Context     := 1;
+  PostData    := '';
+  Header      := '';
+
+  hSession := InternetOpen(PAnsiChar('PipView/'+GetAppVersionInfo + ' ('+getOsDescription()+')'), INTERNET_OPEN_TYPE_PRECONFIG, NIL, NIL, 0);
+
+  if hSession <> NIL then
+  begin
+    hConnection := InternetConnect(hSession, 'secure.zeelandnet.nl', INTERNET_DEFAULT_HTTPS_PORT, NIL, NIL, INTERNET_SERVICE_HTTP, 0,Context);
+
+    if hConnection <> NIL then
+    begin
+      hRequest := HttpOpenRequest(hConnection, 'POST', '/login/index.php', NIL, 'https://secure.zeelandnet.nl/login/index.php', NIL, INTERNET_FLAG_PRAGMA_NOCACHE or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_RELOAD or INTERNET_FLAG_SECURE or INTERNET_FLAG_NO_AUTO_REDIRECT, Context);
+
+      if hRequest <> NIL then
+      begin
+        Header   := 'Content-type: application/x-www-form-urlencoded';
+
+        Postdata := 'login_name=%s&login_pass=%s&login_type=abonnee&action=login';
+        Postdata := Format(Postdata, [Naam, Wachtwoord]);
+
+        if HttpAddRequestHeaders(hRequest, PChar(Header), Length(Header), HTTP_ADDREQ_FLAG_ADD) then
+        begin
+          if HttpSendRequest(hRequest, NIL, 0,PChar(PostData), Length(PostData)) then
+          begin
+            BufSize := sizeof(RawBuffer);
+            Reserved := 0;
+            if HttpQueryInfo(hRequest, HTTP_QUERY_RAW_HEADERS_CRLF, @RawBuffer,BufSize,Reserved) then
+            begin
+              RawHeader.Write(RawBuffer, BufSize);
+
+              if Pos('HTTP/1.1 302 Found', RawHeader.DataString) > 0 then
+              begin
+                Cookie := TRegExpr.Create;
+
+                Cookie.Expression := 'Set-Cookie: (.*?)\r\n';
+                Cookie.InputString := RawHeader.DataString;
+
+                if Cookie.Exec then
+                begin
+                  repeat
+                    InternetSetCookie('https://secure.zeelandnet.nl/login/index.php', nil, PAnsiChar(Cookie.Match[1] + '; expires = ' + getNextYear()));
+                  until not Cookie.ExecNext
+                end;
+
+                Cookie.Free;
+
+                repeat
+                  ReadResult := InternetReadFile(hRequest, @Buffer, sizeof(Buffer), ReadBytes);
+                  Data.Write(Buffer, ReadBytes);
+                until (ReadResult) and (ReadBytes = 0);
+
+                Result := 2;
+              end
+              else
+                Result := 1;
+            end;
+            RawHeader.Free;
+          end;
+        end;
+        InternetCloseHandle(hRequest);
+      end;
+      InternetCloseHandle(hConnection);
+    end;
+    InternetCloseHandle(hSession);
+  end;
+
+  Data.Free;
+end;
+
 
 function getHttp(getUrl: String): String;
 var
@@ -402,81 +498,27 @@ begin
     begin
       fullUrl := String(UrC.lpszUrlPath) + String(UrC.lpszExtraInfo);
       if (UrC.nScheme = INTERNET_SCHEME_HTTPS) then
-        hRequest := HttpOpenRequest(hConnection, 'GET', PAnsiChar(fullUrl), NIL, NIL, NIL, INTERNET_FLAG_PRAGMA_NOCACHE or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_RELOAD or INTERNET_FLAG_SECURE, Context)
+        hRequest := HttpOpenRequest(hConnection, 'GET', PAnsiChar(fullUrl), NIL, NIL, NIL, INTERNET_FLAG_PRAGMA_NOCACHE or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_RELOAD or INTERNET_FLAG_SECURE or INTERNET_FLAG_NO_AUTO_REDIRECT, Context)
       else
-        hRequest := HttpOpenRequest(hConnection, 'GET', PAnsiChar(fullUrl), NIL, NIL, NIL, INTERNET_FLAG_PRAGMA_NOCACHE or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_RELOAD, Context);
+        hRequest := HttpOpenRequest(hConnection, 'GET', PAnsiChar(fullUrl), NIL, NIL, NIL, INTERNET_FLAG_PRAGMA_NOCACHE or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_RELOAD or INTERNET_FLAG_NO_AUTO_REDIRECT, Context);
 
       if hRequest <> NIL then
       begin
-        if HttpSendRequest(hRequest, NIL, 0,NIL, 0) then
-        begin
-          repeat
-            ReadResult := InternetReadFile(hRequest, @Buffer, sizeof(Buffer), ReadBytes);
-            Data.Write(Buffer, ReadBytes);
-          until (ReadResult) and (ReadBytes = 0);
-          InternetCloseHandle(hRequest);
-        end;
-        InternetCloseHandle(hConnection);
+				if HttpSendRequest(hRequest, NIL, 0,NIL, 0) then
+				begin
+					repeat
+						ReadResult := InternetReadFile(hRequest, @Buffer, sizeof(Buffer), ReadBytes);
+						Data.Write(Buffer, ReadBytes);
+					until (ReadResult) and (ReadBytes = 0);
+				end;
+        InternetCloseHandle(hRequest);
       end;
+			InternetCloseHandle(hConnection);
     end;
     InternetCloseHandle(hSession);
     Result := Data.DataString;
     Data.Free;
   end;
-end;
-
-function Login(Naam, Wachtwoord: String): Integer;
-var
-  hSession, hConnection, hRequest: HINTERNET;
-  PostData, Header: String;
-  Data: TStringStream;
-  Buffer: array[0..1024] of Byte;
-  ReadResult: Longbool;
-  ReadBytes, Context: Cardinal;
-begin
-  Result      := 2;
-  Data        := TStringStream.Create('');
-  Context     := 1;
-  PostData    := '';
-  Header      := '';
-
-  hSession := InternetOpen(PAnsiChar('PipView/'+GetAppVersionInfo + ' ('+getOsDescription()+')'), INTERNET_OPEN_TYPE_PRECONFIG, NIL, NIL, 0);
-
-  if hSession <> NIL then
-  begin
-    hConnection := InternetConnect(hSession, 'secure.zeelandnet.nl', INTERNET_DEFAULT_HTTPS_PORT, NIL, NIL, INTERNET_SERVICE_HTTP, 0,Context);
-
-    if hConnection <> NIL then
-    begin
-      hRequest := HttpOpenRequest(hConnection, 'POST', '/login/index.php', NIL, 'https://secure.zeelandnet.nl/login/index.php', NIL, INTERNET_FLAG_PRAGMA_NOCACHE or INTERNET_FLAG_NO_CACHE_WRITE or INTERNET_FLAG_RELOAD or INTERNET_FLAG_SECURE, Context);
-
-      if hRequest <> NIL then
-      begin
-        Header   := 'Content-type: application/x-www-form-urlencoded';
-
-        Postdata := 'login_name=%s&login_pass=%s&login_type=abonnee&action=login';
-        Postdata := Format(Postdata, [Naam, Wachtwoord]);
-
-        if HttpAddRequestHeaders(hRequest, PChar(Header), Length(Header), HTTP_ADDREQ_FLAG_ADD) then
-        begin
-          if HttpSendRequest(hRequest, NIL, 0,PChar(PostData), Length(PostData)) then
-          begin
-            Result := 1;
-
-            repeat
-              ReadResult := InternetReadFile(hRequest, @Buffer, sizeof(Buffer), ReadBytes);
-              Data.Write(Buffer, ReadBytes);
-            until (ReadResult) and (ReadBytes = 0);
-          end;
-        end;
-        InternetCloseHandle(hRequest);
-      end;
-      InternetCloseHandle(hConnection);
-    end;
-    InternetCloseHandle(hSession);
-  end;
-
-  Data.Free;
 end;
 
 end.

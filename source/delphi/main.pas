@@ -175,7 +175,6 @@ type
     procedure Log(Text: String);
     procedure ShowMessage(Text: String; Owner: Integer = -1);
     procedure OpenHelp(URL: String);
-    procedure saveDirectPip();
     procedure SaveSettings;
   end;
 
@@ -203,18 +202,8 @@ uses opties, tools;
 {$R *.dfm}
 
 procedure TfrmPipMain.FormCreate(Sender: TObject);
-var
-  iCount: Integer;
 begin
   LoadSettings();
-
-  for iCount := 1 to ParamCount do
-  begin
-    if LowerCase(ParamStr(iCount)) = '--show' then
-    begin
-      Visible := TRUE;
-    end;
-  end;
 
   ThreadRuns := FALSE;
 
@@ -244,27 +233,6 @@ begin
 
   lstTable.Columns[0].Width := Round((0.5) * lstTable.Width) - 4;
   lstTable.Columns[1].Width := Round((0.5) * lstTable.Width) - 4;
-end;
-
-procedure TfrmPipMain.saveDirectPip();
-var
-  strFileName: String;
-  TempFile: TextFile;
-begin
-  strFilename := ExtractFilePath(Application.EXEName) + 'directpip.html';
-  AssignFile(TempFile, strFilename);
-  Rewrite(TempFile);
-  WriteLn(TempFile, '<script language="JavaScript" type="text/javascript">');
-  WriteLn(TempFile, 'if (typeof(external) == ''undefined'') { pipdoc = window.document; } else { if (typeof(external.menuArguments) == ''undefined'') { pipdoc = window.document; } else { pipdoc = external.menuArguments.document; } }');
-  WriteLn(TempFile, 'pipdoc.open();');
-  WriteLn(TempFile, 'pipdoc.write(''<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html><head><title>Inloggen Pip</title></head><body><p>Een moment alstublieft, er wordt ingelogd in op de ZeelandNet website...</p>'');');
-  WriteLn(TempFile, 'pipdoc.write(''<form action="https://secure.zeelandnet.nl/login/index.php" method="post" name="piplogin">'');');
-  WriteLn(TempFile, 'pipdoc.write(''<input type="hidden" name="login_name" value="''+unescape('''+javaScriptEncode(Opties.Naam)+''')+''">'');');
-  WriteLn(TempFile, 'pipdoc.write(''<input type="hidden" name="login_pass" value="''+unescape('''+javaScriptEncode(Opties.Wachtwoord)+''')+''">'');');
-  WriteLn(TempFile, 'pipdoc.write(''<input type="hidden" name="login_type" value="abonnee"><input type="hidden" name="action" value="login"></form></body></html>'');');
-  WriteLn(TempFile, 'pipdoc.forms[''piplogin''].submit();');
-  WriteLn(TempFile, '</script>');
-  CloseFile(TempFile);
 end;
 
 procedure TfrmPipMain.WMSyscommand(var Msg: TWMSysCommand);
@@ -366,8 +334,6 @@ begin
 
   tmrUpdate.Enabled := (Opties.Interval <> 0);
   tmrUpdate.Interval := Opties.Interval * 60 * 1000;
-
-  saveDirectPip();
 end;
 
 procedure TfrmPipMain.SaveSettings;
@@ -434,7 +400,7 @@ var
   strResult: String;
   strNaam, strWachtwoord: String;
   RegExpr: TRegExpr;
-  LoginResult: Integer;
+	LoginResult: Integer;
 begin
   strNaam       := frmPipMain.Opties.Naam;
   strWachtwoord := frmPipMain.Opties.Wachtwoord;
@@ -453,23 +419,21 @@ begin
   Dataverkeer.Periode.Nummer := 0;
   Dataverkeer.Periode.Jaar := 0;
 
-  LoginResult := Login(strNaam, strWachtwoord);
+	LoginResult := Login(strNaam, strWachtwoord);
 
-  if LoginResult = 2 then
+  if LoginResult = 0 then
   begin
-    Dataverkeer.Fouten := 1;
+    Dataverkeer.Fouten := 1; // server onbereikbaar
     Exit;
   end;
 
-  strResult := GetHTTP('https://secure.zeelandnet.nl/pip/index.php?page=202');
-
-  Logoff;
-
-  if Pos('<meta http-equiv=''refresh'' content=''0; url=https://secure.zeelandnet.nl/logout/index.php?from=https://secure.zeelandnet.nl/pip/index.php?page=202''>', strResult) > 0 then
+  if LoginResult = 1 then
   begin
-    Dataverkeer.Fouten := 2;
+    Dataverkeer.Fouten := 2; // verkeerde logingegevens
     Exit;
   end;
+
+	strResult := GetHTTP('https://secure.zeelandnet.nl/pip/index.php?page=202');
 
   RegExpr := TRegExpr.Create;
 
@@ -927,8 +891,7 @@ end;
 
 procedure TfrmPipMain.OpenPipInBrowser(strLogin, strWachtwoord: String);
 begin
-  saveDirectPip();
-  ShellExecute(Handle, 'open', PChar(ExtractFilePath(Application.EXEName) + 'directpip.html'), NIL, NIL, SW_SHOWNORMAL);
+  ShellExecute(Handle, 'open', 'https://secure.zeelandnet.nl/login/', NIL, NIL, SW_SHOWNORMAL);
 end;
 
 procedure TfrmPipMain.actPipBrowserExecute(Sender: TObject);

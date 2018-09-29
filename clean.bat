@@ -18,7 +18,6 @@ if exist binaries\pipview.chm del binaries\pipview.chm
 REM %% Zorg er voor dat alle dcu-bestanden worden verwijderd zodat alle
 REM %% code gegarandeerd is gecompileerd vanaf de nieuwe source-files
 if exist "%LIBPATH%\Jwa\*.dcu"              del "%LIBPATH%\Jwa\*.dcu"
-if exist "%LIBPATH%\Mime\*.dcu"             del "%LIBPATH%\Mime\*.dcu"
 if exist "%LIBPATH%\NoScrollListview\*.dcu" del "%LIBPATH%\NoScrollListview\*.dcu"
 if exist "%LIBPATH%\RegExpr\*.dcu"          del "%LIBPATH%\RegExpr\*.dcu"
 if exist "%LIBPATH%\Cooltray\*.dcu"         del "%LIBPATH%\Cooltray\*.dcu"

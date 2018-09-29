@@ -32,7 +32,6 @@ ShowUninstDetails nevershow
 ; Installer Types
 ; ===============
 InstType "Standaard"
-InstType "Volledig"
 
 ; Pages
 ; =====
@@ -59,7 +58,7 @@ ReserveFile "pipview_installer.ini"
 ; ==================
 Section "!PipView" SecPipView
 	SetOutPath $INSTDIR
-	SectionIn 1 2 RO
+	SectionIn 1 RO
 
 	File "..\..\binaries\pipview.exe"
 	File "..\..\binaries\pipview.chm"
@@ -80,7 +79,7 @@ Section "!PipView" SecPipView
 SectionEnd
 
 Section "Snelkoppelingen voor PipView maken" SecSnelkoppeling
-	SectionIn 1 2
+	SectionIn 1
 
 	CreateDirectory "$SMPROGRAMS\PipView"
 	CreateShortCut "$SMPROGRAMS\PipView\PipView.lnk" "$INSTDIR\pipview.exe"
@@ -93,33 +92,8 @@ Section "Snelkoppelingen voor PipView maken" SecSnelkoppeling
 SectionEnd
 
 Section "PipView automatisch opstarten" SecOpstarten
-	SectionIn 1 2
+	SectionIn 1
 	CreateShortCut "$SMSTARTUP\PipView.lnk" "$INSTDIR\pipview.exe"
-SectionEnd
-
-Section "Knoppen in Internet Explorer maken" SecIE
-	SectionIn 2
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{7B5014FC-EBE9-403E-830C-C8E27CC1E4AE}" "CLSID" "{1FBA04EE-3024-11D2-8F1F-0000F87ABD16}"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{7B5014FC-EBE9-403E-830C-C8E27CC1E4AE}" "MenuText" "PipView nu starten"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{7B5014FC-EBE9-403E-830C-C8E27CC1E4AE}" "ButtonText" "PipView nu starten"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{7B5014FC-EBE9-403E-830C-C8E27CC1E4AE}" "Default Visible" "Yes"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{7B5014FC-EBE9-403E-830C-C8E27CC1E4AE}" "MenuStatusBar" "PipView wordt gestart en getoond"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{7B5014FC-EBE9-403E-830C-C8E27CC1E4AE}" "ToolTip" "PipView nu starten"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{7B5014FC-EBE9-403E-830C-C8E27CC1E4AE}" "Exec" "$INSTDIR\piplaunch.lnk"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{7B5014FC-EBE9-403E-830C-C8E27CC1E4AE}" "Icon" "$INSTDIR\pipview.exe,101"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{7B5014FC-EBE9-403E-830C-C8E27CC1E4AE}" "HotIcon" "$INSTDIR\pipview.exe,101"
-
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{363410CB-D0DD-496b-BC10-992C6E0A091A}" "CLSID" "{1FBA04EE-3024-11D2-8F1F-0000F87ABD16}"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{363410CB-D0DD-496b-BC10-992C6E0A091A}" "MenuText" "Ga naar uw Persoonlijke Informatie Pagina"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{363410CB-D0DD-496b-BC10-992C6E0A091A}" "ButtonText" "Ga naar uw Persoonlijke Informatie Pagina"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{363410CB-D0DD-496b-BC10-992C6E0A091A}" "Default Visible" "Yes"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{363410CB-D0DD-496b-BC10-992C6E0A091A}" "MenuStatusBar" "Uw Persoonlijke Informatie Pagina wordt direct geopend"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{363410CB-D0DD-496b-BC10-992C6E0A091A}" "ToolTip" "Uw Persoonlijke Informatie Pagina wordt direct geopend"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{363410CB-D0DD-496b-BC10-992C6E0A091A}" "Script" "$INSTDIR\directpip.html"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{363410CB-D0DD-496b-BC10-992C6E0A091A}" "Icon" "$INSTDIR\pipview.exe,102"
-	WriteRegStr HKCU "Software\Microsoft\Internet Explorer\Extensions\{363410CB-D0DD-496b-BC10-992C6E0A091A}" "HotIcon" "$INSTDIR\pipview.exe,102"
-
-	CreateShortCut "$INSTDIR\piplaunch.lnk" "$INSTDIR\pipview.exe" "--show"
 SectionEnd
 
 ; Descriptions
@@ -128,7 +102,6 @@ SectionEnd
 	!insertmacro MUI_DESCRIPTION_TEXT ${SecPipView} "De programmabestanden van PipView installeren"
 	!insertmacro MUI_DESCRIPTION_TEXT ${SecSnelkoppeling} "Snelkoppelingen op het bureaublad, in het menu start en in 'Snel starten' plaatsen"
 	!insertmacro MUI_DESCRIPTION_TEXT ${SecOpstarten} "PipView automatisch laten opstarten bij het inschakelen van de computer"
-	!insertmacro MUI_DESCRIPTION_TEXT ${SecIE} "Knoppen aan de Internet Explorer-werkbalk toevoegen"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; Installer Functions
@@ -185,8 +158,6 @@ Section "Uninstall"
 	RMDir /r "$INSTDIR"
 
 	DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\PipView"
-	DeleteRegKey HKCU "Software\Microsoft\Internet Explorer\Extensions\{7B5014FC-EBE9-403E-830C-C8E27CC1E4AE}"
-	DeleteRegKey HKCU "Software\Microsoft\Internet Explorer\Extensions\{363410CB-D0DD-496b-BC10-992C6E0A091A}"
 	DeleteRegKey HKCU "Software\PipView"
 	DeleteRegKey HKCU "AppEvents\EventLabels\PipViewWarning"
 	DeleteRegKey HKCU "AppEvents\Schemes\Apps\PipView"
