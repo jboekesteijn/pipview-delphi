@@ -1,0 +1,8 @@
+- Netwerkadapter uitschakelen ipv ip releasen
+
+done:
+
+- Pipview wacht tot de system tray zichtbaar is bij het opstarten
+- Percentages verwisseld in ballon (deze stonden andersom)
+- Wanneer 'ingelogd blijven' aan staat, en de gebruiker klikt op
+  "Open Pip in browser", wordt de gebruiker eerst ingelogd.
