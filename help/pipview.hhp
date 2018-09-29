@@ -1,0 +1,18 @@
+[OPTIONS]
+Binary Index=No
+Compatibility=1.1 or later
+Compiled file=..\binaries\pipview.chm
+Contents file=pipview.hhc
+Default Window=main
+Default topic=hoofdvenster.html
+Display compile notes=No
+Display compile progress=No
+Language=0x413 Nederlands (Nederland)
+Title=PipView Help
+
+[WINDOWS]
+main="PipView","pipview.hhc",,,,,,,,0x42120,,0x300c,[10,10,650,490],,,,,,,0
+
+[FILES]
+hoofdvenster.html
+opties.html

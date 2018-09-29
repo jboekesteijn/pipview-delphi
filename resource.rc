@@ -1,0 +1,23 @@
+1 24 "pipview.manifest"
+1 VERSIONINFO
+FILEVERSION    0,9,9,4
+PRODUCTVERSION 0,9,9,4
+{
+BLOCK "StringFileInfo"
+{
+BLOCK "041304E4"
+{
+VALUE "FileDescription",  "Programmabestand PipView\000"
+VALUE "FileVersion",      "0.9.9.4\000\000"
+VALUE "LegalCopyright",   "(c) 2001-2004 Joost-Wim Boekesteijn\000\000"
+VALUE "ProductName",      "PipView\000"
+VALUE "ProductVersion",   "0.9.9.4\000\000"
+}}
+BLOCK "VarFileInfo"
+{
+VALUE "Translation", 0x0413 0x04E4
+}}
+MAINICON ICON "graphics\icon.ico"
+101 ICON "graphics\ie_icon.ico"
+102 ICON "graphics\ie_dpip_icon.ico"
+103 ICON "graphics\empty.ico"
